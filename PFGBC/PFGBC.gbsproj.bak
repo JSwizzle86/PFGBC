@@ -1,8 +1,8 @@
 {
     "name": "PFGBC",
-    "author": "Ace",
+    "author": "donna",
     "_version": "3.1.0",
-    "_release": "3",
+    "_release": "0",
     "scenes": [
         {
             "id": "94c18861-b352-4f49-a64d-52f2e3415077",
@@ -9435,9 +9435,9 @@
         "defaultUIPaletteId": "default-ui",
         "playerPaletteId": "",
         "navigatorSplitSizes": [
-            359,
-            119,
-            119
+            429,
+            142,
+            142
         ],
         "showNavigator": true,
         "defaultFontId": "26fa15df-3318-44ad-8bfd-feff8ba7991d",
