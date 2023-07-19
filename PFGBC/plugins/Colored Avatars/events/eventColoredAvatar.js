@@ -10,6 +10,10 @@ const wrap8Bit = (val) => (256 + (val % 256)) % 256;
 
 const decOct = (dec) => wrap8Bit(dec).toString(8).padStart(3, "0");
 
+const setTextPos = (x, y) => `\\003\\${decOct(x)}\\${decOct(y)}`;
+const writeAsciiChar = (char) => `\\005\\${decOct(char)}`;
+const waitforInputMask = (mask) => `\\006\\${decOct(mask)}`;
+
 const fields = [].concat(
   {
     key: "items",
@@ -140,28 +144,36 @@ const compile = (input, helpers) => {
     _addComment,
     _addNL,
     appendRaw,
+    _overlayClear,
+    _overlayMoveTo,
     _overlayWait,
+    _loadStructuredText,
+    _displayText,
     _idle,
     paletteSetSprite,
   } = helpers;
 
 
+
   _addComment("Avatar dialogue");
 
+  //Make sprites appear on overlay
   appendRaw(`VM_PUSH_CONST 0
 VM_GET_UINT8 .ARG0, _overlay_priority
 VM_SET_CONST_UINT8 _overlay_priority, 0
 VM_SET_CONST_UINT8 _show_actors_on_overlay, 1`);
 
-  helpers._overlayClear(0, 0, 20, MAX_DIALOGUE_LINES + 2, ".UI_COLOR_BLACK", true);
-  helpers._overlayMoveTo(0, 14, ".OVERLAY_IN_SPEED");
+
+  _overlayClear(0, 0, 20, MAX_DIALOGUE_LINES + 2, ".UI_COLOR_BLACK", true);
+  _overlayMoveTo(0, 18 - MAX_DIALOGUE_LINES - 2, ".OVERLAY_IN_SPEED");
 
   Array(input.items)
     .fill()
-    .map((_, i) => {
+    .map((_, i) => {//For every character:
       const idx = i + 1;
       const avatar = input[`item_${idx}_avatar`];
       
+      //Update and show Avatar
       if(avatar){
         paletteSetSprite(["keep","keep","keep","keep","keep","keep","keep", input[`item_${idx}_pallete`]]);
         actorSetActive(input.actor);
@@ -174,36 +186,48 @@ VM_SET_CONST_UINT8 _show_actors_on_overlay, 1`);
       
       ((inputText = " ") => {
       const textArray = Array.isArray(inputText) ? inputText : [inputText];
+      _addNL();
+      _addComment(`Character ${idx}:`);
+      
+      textArray.forEach((text, textIndex) => {//For every text box:
 
-      const initialNumLines = textArray.map(
-        (textBlock) => textBlock.split("\n").length
-      );
+        //Add scrolling text code to string
+        const linearray = text.split("\n");
+        let newText = "";
+        linearray.forEach((line, lineIndex) => {//For every line of text:
+          newText += line;
+          if(linearray.length > 2 && lineIndex % 2 && lineIndex != linearray.length - 1){
+            newText += setTextPos(18, 4) + writeAsciiChar(127) + waitforInputMask(48);
+            newText += setTextPos(18, 4) + writeAsciiChar(143);
+            if(avatar) newText += setTextPos(5, 2);
+            else newText += setTextPos(2, 2);
+            newText += `\n\n`;
+          }else{
+            if(lineIndex != linearray.length - 1) newText += `\n`;
+          }
+        });
+        text = newText;
 
-      const maxNumLines = Math.max(2, Math.max.apply(null, initialNumLines));
-      const textBoxHeight = MAX_DIALOGUE_LINES + 2;
-      const textBoxY = 18 - textBoxHeight;
-
-      helpers._addComment("Text Dialogue");
-      textArray.forEach((text, textIndex) => {
-        
         if(avatar){
-          text = `\\003\\005\\002` + text;
+          text = setTextPos(5, 2) + text;
         }
+        //Add indicator arrow
         if (!(textIndex === textArray.length - 1 && idx === input.items)) {
-          text = text + `\\003\\022\\004\\005\\177`;
+          text += setTextPos(18, 4) + writeAsciiChar(127);
         }
-        let avatarIndex = undefined;
-
-        helpers._loadStructuredText(text, avatarIndex, MAX_DIALOGUE_LINES);
-        helpers._overlayClear(0, 0, 20, textBoxHeight, ".UI_COLOR_BLACK", true);
-        helpers._displayText();
-        helpers._overlayWait(true, [
+        //Load and write text
+        _addComment(`Text box ${textIndex + 1}`);
+        _loadStructuredText(text, undefined, MAX_DIALOGUE_LINES);
+        _overlayClear(0, 0, 20, MAX_DIALOGUE_LINES + 2, ".UI_COLOR_BLACK", true);
+        _displayText();
+        _overlayWait(true, [
           ".UI_WAIT_WINDOW",
           ".UI_WAIT_TEXT",
           ".UI_WAIT_BTN_A",
         ]);
+        _addNL();
       });
-      helpers._addNL();
+      _addNL();
       })(input[`item_${idx}_text`] || " ");
 
       if(avatar){
@@ -211,9 +235,10 @@ VM_SET_CONST_UINT8 _show_actors_on_overlay, 1`);
       }
 
     });
-
-  helpers._overlayMoveTo(0, 18, ".OVERLAY_OUT_SPEED");
-  helpers._overlayWait(true, [".UI_WAIT_WINDOW", ".UI_WAIT_TEXT"]);
+  
+  //Close text and reset all vars
+  _overlayMoveTo(0, 18, ".OVERLAY_OUT_SPEED");
+  _overlayWait(true, [".UI_WAIT_WINDOW", ".UI_WAIT_TEXT"]);
 
   appendRaw(`VM_SET_UINT8 _overlay_priority, .ARG0
 VM_POP 1
