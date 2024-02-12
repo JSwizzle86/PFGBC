@@ -6,6 +6,10 @@ const MAX_OPTIONS = 16;
 
 const MAX_DIALOGUE_LINES = 2;
 
+const NAME_STANDIN = "[NAME]";
+
+const NAME_REPLACEMENT = "#V01##V02##V03##V04##V05##V06#";
+
 const wrap8Bit = (val) => (256 + (val % 256)) % 256;
 
 const decOct = (dec) => wrap8Bit(dec).toString(8).padStart(3, "0");
@@ -206,6 +210,9 @@ VM_SET_CONST_UINT8 _show_actors_on_overlay, 1`);
             if(lineIndex != linearray.length - 1) newText += `\n`;
           }
         });
+
+        newText = newText.replace(NAME_STANDIN, NAME_REPLACEMENT);
+
         text = newText;
 
         if(avatar){
